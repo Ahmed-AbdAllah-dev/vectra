@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import prisma from "@/lib/prisma";
 
-type Params = { params: { deliveryId: string } };
+type Params = { params: Promise<{ deliveryId: string }> };
 
 async function requireAdmin(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
@@ -18,7 +18,8 @@ export async function GET(req: NextRequest, { params }: Params) {
   const token = await requireAdmin(req);
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const deliveryId = parseInt(params.deliveryId);
+  const { deliveryId: deliveryIdStr } = await params;
+  const deliveryId = parseInt(deliveryIdStr);
   if (isNaN(deliveryId)) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
 
   const delivery = await prisma.delivery.findUnique({
@@ -35,7 +36,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const token = await requireAdmin(req);
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const deliveryId = parseInt(params.deliveryId);
+  const { deliveryId: deliveryIdStr } = await params;
+  const deliveryId = parseInt(deliveryIdStr);
   if (isNaN(deliveryId)) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
 
   const body = await req.json();

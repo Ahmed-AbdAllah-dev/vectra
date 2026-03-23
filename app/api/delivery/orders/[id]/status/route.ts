@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import prisma from "@/lib/prisma";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 const ALLOWED_TRANSITIONS: Record<string, string> = {
   PROCESSING: "SHIPPED",
@@ -26,7 +26,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Delivery profile not found" }, { status: 403 });
   }
 
-  const orderId = parseInt(params.id);
+  const { id } = await params;
+  const orderId = parseInt(id);
   if (isNaN(orderId)) {
     return NextResponse.json({ error: "Invalid order ID" }, { status: 400 });
   }

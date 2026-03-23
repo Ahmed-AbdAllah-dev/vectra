@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import prisma from "@/lib/prisma";
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 async function getDeliveryId(req: NextRequest): Promise<number | null> {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
@@ -21,7 +21,8 @@ export async function GET(req: NextRequest, { params }: Params) {
   const deliveryId = await getDeliveryId(req);
   if (!deliveryId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const orderId = parseInt(params.id);
+  const { id } = await params;
+  const orderId = parseInt(id);
   if (isNaN(orderId)) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
 
   const order = await prisma.order.findFirst({
@@ -70,7 +71,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const deliveryId = await getDeliveryId(req);
   if (!deliveryId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const orderId = parseInt(params.id);
+  const { id } = await params;
+  const orderId = parseInt(id);
   if (isNaN(orderId)) return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
 
   const { status: newStatus } = await req.json() as { status: string };
