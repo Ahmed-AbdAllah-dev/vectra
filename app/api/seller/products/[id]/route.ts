@@ -49,7 +49,7 @@ async function uploadImage(file: File): Promise<string> {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify seller
@@ -62,7 +62,8 @@ export async function GET(
     }
 
     const { sellerId } = auth;
-    const productId = parseInt(params.id);
+    const { id } = await params;
+    const productId = parseInt(id);
 
     if (isNaN(productId)) {
       return NextResponse.json(
@@ -199,7 +200,7 @@ export async function GET(
 // Simplified PUT route for updating product
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify seller
@@ -212,7 +213,8 @@ export async function PUT(
     }
 
     const { sellerId } = auth;
-    const productId = parseInt(params.id);
+    const { id } = await params;
+    const productId = parseInt(id);
     
     if (isNaN(productId)) {
       return NextResponse.json(
@@ -468,7 +470,7 @@ export async function PUT(
 // app/api/seller/products/[id]/route.ts - UPDATE DELETE METHOD
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify seller
@@ -481,7 +483,8 @@ export async function DELETE(
     }
 
     const { sellerId } = auth;
-    const productId = parseInt(params.id);
+    const { id } = await params;
+    const productId = parseInt(id);
 
     if (isNaN(productId)) {
       return NextResponse.json(

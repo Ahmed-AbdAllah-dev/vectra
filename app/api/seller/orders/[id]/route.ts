@@ -6,7 +6,7 @@ import { verifySeller } from '../../middleware';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify seller
@@ -19,7 +19,8 @@ export async function GET(
     }
 
     const { sellerId } = auth;
-    const orderId = parseInt(params.id);
+    const { id } = await params;
+    const orderId = parseInt(id);
 
     if (isNaN(orderId)) {
       return NextResponse.json(
@@ -155,7 +156,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify seller
@@ -168,7 +169,8 @@ export async function PUT(
     }
 
     const { sellerId } = auth;
-    const orderId = parseInt(params.id);
+    const { id } = await params;
+    const orderId = parseInt(id);
     const data = await request.json();
 
     if (isNaN(orderId)) {

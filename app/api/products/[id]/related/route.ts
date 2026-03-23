@@ -4,9 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const productId = parseInt(params.id, 10);
+  const { id } = await params;
+  const productId = parseInt(id, 10);
 
   if (isNaN(productId)) {
     return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
@@ -40,7 +41,7 @@ export async function GET(
       },
       take: 4,
       orderBy: {
-        soldQuantity: 'desc' // Order by popularity
+        createdAt: 'desc' // Order by newest (soldQuantity must be accessed via ProductVariant)
       }
     });
 

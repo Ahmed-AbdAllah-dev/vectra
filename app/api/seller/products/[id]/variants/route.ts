@@ -7,7 +7,7 @@ import { verifySeller } from '../../../middleware';
 // Get all variants for a product
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify seller
@@ -20,7 +20,8 @@ export async function GET(
     }
 
     const { sellerId } = auth;
-    const productId = parseInt(params.id);
+    const { id } = await params;
+    const productId = parseInt(id);
 
     if (isNaN(productId)) {
       return NextResponse.json(
@@ -90,7 +91,7 @@ export async function GET(
 // Add a new variant to product
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify seller
@@ -103,7 +104,8 @@ export async function POST(
     }
 
     const { sellerId } = auth;
-    const productId = parseInt(params.id);
+    const { id } = await params;
+    const productId = parseInt(id);
     const data = await request.json();
 
     if (isNaN(productId)) {
