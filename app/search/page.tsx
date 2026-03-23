@@ -432,7 +432,7 @@ const SearchPageContent: React.FC = () => {
                 />
 
                 {/* Filter Stats */}
-                <FilterStats stats={filterStats} />
+                <FilterStats stats={filterStats || undefined} />
 
                 {/* Results Header - Improved mobile layout */}
                 <div className="flex flex-col gap-4 mb-6">

@@ -65,10 +65,11 @@ async function getProduct(id: string): Promise<Product | null> {
 export default async function ProductPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   try {
-    const product = await getProduct(params.id);
+    const { id } = await params;
+    const product = await getProduct(id);
 
     if (!product) {
       return (

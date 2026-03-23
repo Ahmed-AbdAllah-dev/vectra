@@ -210,7 +210,7 @@ export default function SignupPage() {
     file: File | null;
     onChange: (f: File) => void;
     error?: string;
-    inputRef: React.RefObject<HTMLInputElement>;
+    inputRef: React.RefObject<HTMLInputElement | null>;
     icon: React.ElementType;
   }) => (
     <div>

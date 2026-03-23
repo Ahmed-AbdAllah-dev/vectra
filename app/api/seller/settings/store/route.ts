@@ -128,7 +128,7 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating store settings:', error);
     
     // Handle specific error cases
-    if (error.code === 'P2002') {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
       return NextResponse.json(
         { error: 'Email already exists' },
         { status: 409 }

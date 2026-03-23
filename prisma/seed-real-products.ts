@@ -1,5 +1,5 @@
 // prisma/seed-real-products.ts
-import {  AttributeType, PrismaClient } from '@/app/generated/prisma';
+import { AttributeType, PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -17,6 +17,7 @@ async function main() {
         name: 'Nike Store',
         address: '123 Fashion Ave',
         phone: '+1234567890',
+        user: { create: { email: 'nike@store.com', password: 'hashedpassword', role: 'SELLER' } }
       },
     }),
     prisma.seller.upsert({
@@ -28,6 +29,7 @@ async function main() {
         name: 'Adidas Official',
         address: '456 Sport St',
         phone: '+1234567891',
+        user: { create: { email: 'adidas@store.com', password: 'hashedpassword', role: 'SELLER' } }
       },
     }),
     prisma.seller.upsert({
@@ -39,6 +41,7 @@ async function main() {
         name: 'Uniqlo',
         address: '789 Style Blvd',
         phone: '+1234567892',
+        user: { create: { email: 'uniqlo@store.com', password: 'hashedpassword', role: 'SELLER' } }
       },
     }),
   ]);
@@ -53,6 +56,7 @@ async function main() {
       name: 'John Customer',
       address: '123 Customer St',
       phone: '+1234567893',
+      user: { create: { email: 'customer@example.com', password: 'hashedpassword', role: 'BUYER' } }
     },
   });
 
@@ -173,9 +177,9 @@ async function main() {
   ]);
 
   // Helper function to find attribute values
-  const findColor = (name: string) => colors.find(c => c.value === name);
-  const findSize = (name: string) => sizes.find(s => s.value === name);
-  const findMaterial = (name: string) => materials.find(m => m.value === name);
+  const findColor = (name: string) => colors.find((c: any) => c.value === name);
+  const findSize = (name: string) => sizes.find((s: any) => s.value === name);
+  const findMaterial = (name: string) => materials.find((m: any) => m.value === name);
 
   // Product 1: Nike Air Max T-Shirt
   const nikeProduct = await prisma.product.create({
