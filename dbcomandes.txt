@@ -1,0 +1,22 @@
+Basic PostgreSQL Commands Cheatsheet
+Command	Description
+sudo -u postgres psql	Access PostgreSQL CLI
+\l	List all databases
+\c database_name	Connect to a database
+\dt	List tables in current database
+\du	List users
+\q	Quit the CLI
+
+
+Connection issues?
+
+Check if PostgreSQL is running: sudo systemctl status postgresql
+
+Verify port 5432 is open: ss -tulnp | grep 5432
+
+Check authentication in: /etc/postgresql/[version]/main/pg_hba.conf
+
+
+http://localhost:3000//api/search?q=shoes
+
+psql -U prisma_user -h localhost  -d ecommerce

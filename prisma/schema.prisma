@@ -1,0 +1,451 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum AttributeType {
+  COLOR
+  SIZE
+  MATERIAL
+  STYLE
+  PATTERN
+  OTHER
+}
+
+enum UserRole {
+  BUYER
+  SELLER
+  DELIVERY
+  ADMIN
+}
+
+enum DeliveryStatus {
+  PENDING    // submitted, awaiting admin review
+  APPROVED   // admin approved
+  REJECTED   // admin rejected
+}
+
+// ─── Auth / Core ─────────────────────────────────────────────────────────────
+
+model User {
+  id                 Int                  @id @default(autoincrement())
+  email              String               @unique
+  password           String
+  name               String?
+  phone              String?
+  role               UserRole             @default(BUYER)
+  emailVerified      DateTime?
+  image              String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  accounts           Account[]
+  sessions           Session[]
+  buyer              Buyer?
+  seller             Seller?
+  delivery           Delivery?
+  admin              Admin?
+  OrderStatusHistory OrderStatusHistory[] @relation("OrderStatusHistoryChangedBy")
+}
+
+model Account {
+  id                Int     @id @default(autoincrement())
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  userId            Int
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           Int      @id @default(autoincrement())
+  sessionToken String   @unique
+  expires      DateTime
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Profiles ────────────────────────────────────────────────────────────────
+
+model Admin {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveryApprovals DeliveryApproval[]
+}
+
+model Buyer {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  address   String?
+  phone     String?
+  password  String
+  userId    Int      @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  profileImage String? 
+  
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  carts           Cart[]
+  orders          Order[]
+  reviews         Review[]
+  ShippingAddress ShippingAddress[]
+}
+
+model Seller {
+  id                      Int       @id @default(autoincrement())
+  email                   String    @unique
+  name                    String
+  address                 String?
+  phone                   String?
+  password                String
+  userId                  Int       @unique
+  notificationPreferences String?
+  shippingSettings        String?
+  profileImage            String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders   Order[]
+  products Product[]
+}
+
+/// Delivery person — requires admin approval before they can operate
+model Delivery {
+  id              Int            @id @default(autoincrement())
+  email           String         @unique
+  name            String
+  phone           String?
+  password        String
+  userId          Int            @unique
+
+  /// National / government-issued ID card image URL
+  idCardImage     String
+  /// Vehicle registration / insurance document URL
+  vehicleDocument String
+  /// Photo of the vehicle URL
+  vehicleImage    String
+
+  status          DeliveryStatus @default(PENDING)
+  rejectionReason String?        // set by admin on rejection
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvals       DeliveryApproval[]
+  deliveries      Order[]          @relation("OrderDelivery")
+}
+
+/// Audit trail: every time an admin approves / rejects a delivery account
+model DeliveryApproval {
+  id         Int            @id @default(autoincrement())
+  deliveryId Int
+  adminId    Int
+  action     DeliveryStatus // APPROVED or REJECTED
+  notes      String?
+  createdAt  DateTime       @default(now())
+
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  admin      Admin    @relation(fields: [adminId], references: [id])
+
+  @@index([deliveryId])
+  @@index([adminId])
+}
+
+// ─── Products ────────────────────────────────────────────────────────────────
+
+model Product {
+  id          Int              @id @default(autoincrement())
+  name        String
+  description String?
+  category    String
+  price       Float
+  bestSelling Boolean          @default(false)
+  sellerId    Int
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  seller    Seller           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  discounts Discount[]
+  Order     Order[]
+  images    ProductImage[]
+  variants  ProductVariant[]
+  reviews   Review[]
+}
+
+model ProductVariant {
+  id           Int                @id @default(autoincrement())
+  sku          String             @unique
+  currentStock Int                @default(0)
+  soldQuantity Int                @default(0)
+  weight       Float?
+  isActive     Boolean            @default(true)
+  productId    Int
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  product    Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems  CartItem[]
+  orders     Order[]
+  attributes VariantAttribute[]
+  images     VariantImage[]
+
+  @@index([productId])
+  @@index([sku])
+}
+
+model Attribute {
+  id          Int                @id @default(autoincrement())
+  name        String             @unique
+  displayName String
+  type        AttributeType
+  sortOrder   Int                @default(0)
+  createdAt   DateTime           @default(now())
+
+  values         AttributeValue[]
+  variantAttribs VariantAttribute[]
+}
+
+model AttributeValue {
+  id          Int      @id @default(autoincrement())
+  value       String
+  displayName String
+  hexColor    String?
+  sortOrder   Int      @default(0)
+  attributeId Int
+  createdAt   DateTime @default(now())
+
+  attribute      Attribute          @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  variantAttribs VariantAttribute[]
+
+  @@unique([attributeId, value])
+  @@index([attributeId])
+}
+
+model VariantAttribute {
+  variantId   Int
+  attributeId Int
+  valueId     Int
+
+  attribute Attribute      @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  value     AttributeValue @relation(fields: [valueId], references: [id], onDelete: Cascade)
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@id([variantId, attributeId])
+  @@index([variantId])
+  @@index([attributeId])
+  @@index([valueId])
+}
+
+model VariantImage {
+  id        Int            @id @default(autoincrement())
+  url       String
+  altText   String?
+  caption   String?
+  sortOrder Int            @default(0)
+  isPrimary Boolean        @default(false)
+  type      String?
+  width     Int?
+  height    Int?
+  fileSize  Int?
+  format    String?
+  variantId Int
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([variantId])
+}
+
+model ProductImage {
+  id        Int      @id @default(autoincrement())
+  url       String
+  altText   String?
+  caption   String?
+  sortOrder Int      @default(0)
+  isPrimary Boolean  @default(false)
+  type      String?
+  width     Int?
+  height    Int?
+  fileSize  Int?
+  format    String?
+  productId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([isPrimary])
+}
+
+model Discount {
+  id         Int      @id @default(autoincrement())
+  percentage Float
+  startDate  DateTime
+  endDate    DateTime
+  productId  Int
+
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  star      Int
+  content   String   @db.VarChar(1000)
+  productId Int
+  buyerId   Int
+  createdAt DateTime @default(now())
+
+  buyer   Buyer   @relation(fields: [buyerId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+// ─── Orders ──────────────────────────────────────────────────────────────────
+
+model Order {
+  id                Int      @id @default(autoincrement())
+  quantity          Int      @default(1)
+  status            String   @default("PENDING")
+  total             Float
+  subtotal          Float
+  tax               Float
+  shipping          Float
+  notes             String?
+  paymentMethod     String   @default("PAY_ON_DELIVERY")
+  paymentStatus     String   @default("PENDING")
+  trackingNumber    String?
+
+  buyerId           Int
+  sellerId          Int
+  productId         Int?
+  variantId         Int?
+  shippingAddressId Int?
+
+  /// Assigned delivery person (null until dispatched)
+  deliveryId        Int?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  buyer           Buyer                @relation(fields: [buyerId], references: [id])
+  seller          Seller               @relation(fields: [sellerId], references: [id])
+  product         Product?             @relation(fields: [productId], references: [id])
+  variant         ProductVariant?      @relation(fields: [variantId], references: [id])
+  shippingAddress ShippingAddress?     @relation(fields: [shippingAddressId], references: [id])
+  delivery        Delivery?            @relation("OrderDelivery", fields: [deliveryId], references: [id])
+  statusHistory   OrderStatusHistory[]
+
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([variantId])
+  @@index([productId])
+  @@index([shippingAddressId])
+  @@index([deliveryId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderStatusHistory {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  status      String
+  notes       String?
+  changedBy   String
+  changedById Int?
+  createdAt   DateTime @default(now())
+
+  order         Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedByUser User? @relation("OrderStatusHistoryChangedBy", fields: [changedById], references: [id])
+
+  @@index([orderId])
+  @@index([createdAt])
+  @@index([changedById])
+}
+
+model ShippingAddress {
+  id        Int      @id @default(autoincrement())
+  fullName  String
+  email     String
+  phone     String
+  street    String
+  city      String
+  state     String
+  zipCode   String
+  country   String   @default("United States")
+  buyerId   Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  buyer  Buyer?  @relation(fields: [buyerId], references: [id])
+  orders Order[]
+
+  @@index([email])
+  @@index([zipCode])
+  @@index([buyerId])
+}
+
+// ─── Cart ────────────────────────────────────────────────────────────────────
+
+model Cart {
+  id        Int       @id @default(autoincrement())
+  buyerId   Int?
+  sessionId String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  expiresAt DateTime?
+
+  buyer Buyer?     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@index([buyerId])
+  @@index([sessionId])
+  @@index([expiresAt])
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  cartId    Int
+  variantId Int
+  quantity  Int      @default(1)
+  addedAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, variantId])
+  @@index([cartId])
+  @@index([variantId])
+}
