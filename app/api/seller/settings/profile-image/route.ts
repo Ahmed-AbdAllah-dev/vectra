@@ -2,30 +2,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import path from 'path';
-import fs from 'fs/promises';
-import { v4 as uuidv4 } from 'uuid';
+import { put, del } from '@vercel/blob';
 import  prisma  from '@/lib/prisma';
+import { v4 as uuidv4 } from 'uuid';
 
-// Helper function to delete a file from the public folder
-async function deleteFileFromPublic(imageUrl: string | null) {
-  if (!imageUrl) return;
+// Helper function to delete a file from Vercel Blob
+async function deleteFileFromBlob(imageUrl: string | null) {
+  if (!imageUrl || !imageUrl.includes('public.blob.vercel-storage.com')) return;
 
   try {
-    // Construct the absolute path to the file
-    // The URL is stored as /uploads/profiles/filename.jpg
-    // We need to prepend process.cwd() and '/public'
-    const filePath = path.join(process.cwd(), 'public', imageUrl);
-
-    // Check if file exists before attempting deletion to avoid errors
-    await fs.access(filePath);
-    await fs.unlink(filePath);
-    console.log(`Deleted old file: ${filePath}`);
+    await del(imageUrl);
+    console.log(`Deleted blob: ${imageUrl}`);
   } catch (error) {
-    // If file doesn't exist (ENOENT), we ignore it so the app doesn't crash
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.error('Failed to delete image file:', error);
-    }
+    console.error('Failed to delete blob file:', error);
   }
 }
 
@@ -102,25 +91,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique filename
-    const uniqueId = uuidv4();
-    const fileExtension = file.name.split('.').pop();
-    const fileName = `profile-${uniqueId}.${fileExtension}`;
-    
-    // Create uploads directory if it doesn't exist
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'profiles');
-    await fs.mkdir(uploadDir, { recursive: true });
+    // Unique filename
+    const filename = `seller-profile-${uuidv4()}-${file.name.replace(/\s+/g, '-')}`;
 
-    // Convert file to buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Upload to Vercel Blob
+    const blob = await put(filename, file, {
+      access: 'public',
+    });
 
-    // Save file
-    const filePath = path.join(uploadDir, fileName);
-    await fs.writeFile(filePath, buffer);
-
-    // Create relative URL for the image
-    const imageUrl = `/uploads/profiles/${fileName}`;
+    console.log('Seller profile image uploaded to Vercel Blob:', blob.url);
+    const imageUrl = blob.url;
 
     // 1. Fetch Current Seller (to get userId and old image)
     const currentSeller = await prisma.seller.findUnique({
@@ -145,9 +125,9 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
-    // 3. Delete old file if it existed
+    // 3. Delete old file if it was on Vercel Blob
     if (currentSeller.profileImage) {
-      await deleteFileFromPublic(currentSeller.profileImage);
+      await deleteFileFromBlob(currentSeller.profileImage);
     }
 
     return NextResponse.json({
@@ -197,9 +177,9 @@ export async function DELETE(request: NextRequest) {
       }),
     ]);
 
-    // 3. Delete physical file
+    // 3. Delete from Vercel Blob
     if (currentSeller.profileImage) {
-      await deleteFileFromPublic(currentSeller.profileImage);
+      await deleteFileFromBlob(currentSeller.profileImage);
     }
    
     return NextResponse.json({

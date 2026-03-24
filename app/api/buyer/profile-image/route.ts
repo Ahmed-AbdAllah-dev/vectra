@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { writeFile, mkdir, unlink } from 'fs/promises';
-import path from 'path';
+import { put, del } from '@vercel/blob';
 import  prisma  from '@/lib/prisma';
-import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(req: NextRequest) {
   try {
@@ -52,33 +50,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'File too large (max 5MB)' }, { status: 400 });
     }
 
-    // Convert file to buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Upload to Vercel Blob
+    const filename = `profile-${userId}-${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
+    const blob = await put(filename, file, {
+      access: 'public',
+    });
 
-    // Create unique filename
-    const ext = path.extname(file.name) || '.jpg';
-    const filename = `${uuidv4()}${ext}`;
-    const uploadDir = path.join(process.cwd(), 'public/uploads');
-    
-    console.log('Upload directory:', uploadDir);
-    
-    // Ensure directory exists
-    try {
-      await mkdir(uploadDir, { recursive: true });
-      console.log('Directory created/verified');
-    } catch (dirError) {
-      console.error('Error creating directory:', dirError);
-      throw dirError;
-    }
-    
-    // Save file
-    const filepath = path.join(uploadDir, filename);
-    await writeFile(filepath, buffer);
-    console.log('File saved:', filepath);
-
-    // Public URL
-    const imageUrl = `/uploads/${filename}`;
+    console.log('Profile image uploaded to Vercel Blob:', blob.url);
+    const imageUrl = blob.url;
 
     // Get the current buyer to find old image for deletion
     const currentBuyer = await prisma.buyer.findUnique({
@@ -86,16 +65,13 @@ export async function POST(req: NextRequest) {
       select: { profileImage: true }
     });
 
-    // Delete old image if it exists
-    if (currentBuyer?.profileImage) {
+    // Delete old image if it exists on Vercel Blob
+    if (currentBuyer?.profileImage && currentBuyer.profileImage.includes('public.blob.vercel-storage.com')) {
       try {
-        const oldFilename = currentBuyer.profileImage.replace('/uploads/', '');
-        const oldFilepath = path.join(process.cwd(), 'public/uploads', oldFilename);
-        await unlink(oldFilepath);
-        console.log('Old image deleted:', oldFilename);
+        await del(currentBuyer.profileImage);
+        console.log('Old Vercel Blob image deleted:', currentBuyer.profileImage);
       } catch (deleteError) {
-        // Ignore if file doesn't exist
-        console.log('Old image not found or could not be deleted');
+        console.error('Failed to delete old blob:', deleteError);
       }
     }
 
@@ -136,16 +112,13 @@ export async function DELETE(req: NextRequest) {
       select: { profileImage: true },
     });
 
-    if (buyer?.profileImage) {
-      // Delete the file
-      const filename = buyer.profileImage.replace('/uploads/', '');
-      const filepath = path.join(process.cwd(), 'public/uploads', filename);
+    if (buyer?.profileImage && buyer.profileImage.includes('public.blob.vercel-storage.com')) {
+      // Delete from Vercel Blob
       try {
-        await unlink(filepath);
-        console.log('Image deleted:', filename);
+        await del(buyer.profileImage);
+        console.log('Image deleted from Vercel Blob:', buyer.profileImage);
       } catch (err) {
-        // Ignore if file doesn't exist
-        console.log('File not found or could not be deleted');
+        console.error('Failed to delete blob:', err);
       }
     }
 

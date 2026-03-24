@@ -1,10 +1,11 @@
-// scripts/seed-admin.ts
-// Run once with:  npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/seed-admin.ts
+// prisma/seed-admin.ts
+// Run once with: npx tsx prisma/seed-admin.ts
 
-import { PrismaClient } from "@prisma/client";
+import  prisma  from '@/lib/prisma';
+
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+
 
 async function main() {
   const EMAIL    = "admin@yoursite.com"; // ← change this

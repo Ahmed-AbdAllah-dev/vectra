@@ -1,14 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  turbopack: {},
   images: {
-    domains: ['localhost', 'picsum.photos'], // Added picsum.photos
     remotePatterns: [
       {
         protocol: 'http',
         hostname: 'localhost',
         port: '3000',
         pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.public.blob.vercel-storage.com',
+        pathname: '/**',
       },
       {
         protocol: 'https',
@@ -26,6 +31,7 @@ const nextConfig: NextConfig = {
     config.resolve.fallback = { fs: false, path: false };
     return config;
   },
+  serverExternalPackages: ['@prisma/client', 'bcrypt'],
 }
 
 export default nextConfig;

@@ -214,7 +214,7 @@ const subtotal = price * quantity;
 
     // Use Prisma transaction to ensure atomicity
     // Use Prisma transaction to ensure atomicity
-const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
   // Create or find shipping address
   let shippingAddressRecord;
   
@@ -257,17 +257,8 @@ const result = await prisma.$transaction(async (tx) => {
     });
   }
 
-  // Get seller ID from product
-  const product = await tx.product.findUnique({
-    where: { id: productId },
-    select: { sellerId: true }
-  });
-
-  if (!product) {
-    throw new Error('Product not found');
-  }
-
-  const sellerId = product.sellerId;
+  // We already have the sellerId from the productVariant fetch outside the transaction
+  // No need to fetch the product again here
 
   // Create order with proper relations
   // In your POST method in /api/buyer/orders/route.ts
@@ -298,16 +289,6 @@ const order = await tx.order.create({
     status: 'PENDING',
     paymentMethod,
   },
-  include: {
-    buyer: true,
-    seller: true,
-    shippingAddress: true,
-    variant: {
-      include: {
-        product: true
-      }
-    }
-  }
 });
 
   // Update ProductVariant stock
@@ -326,6 +307,8 @@ const order = await tx.order.create({
   }
 
   return { order, shippingAddress: shippingAddressRecord };
+}, {
+  timeout: 15000 // Increase timeout to 15 seconds
 });
 
     return NextResponse.json(

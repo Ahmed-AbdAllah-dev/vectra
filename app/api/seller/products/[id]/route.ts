@@ -5,42 +5,23 @@ import  prisma  from '@/lib/prisma';
 import { verifySeller } from '../../middleware';
 
 
-import fs from 'fs';
-import path from 'path';
+import { put } from '@vercel/blob';
 
-// Direct filesystem upload function
+// Vercel Blob upload function
 async function uploadImage(file: File): Promise<string> {
   try {
     if (!file || file.size === 0) {
       throw new Error('Empty file provided');
     }
 
-    // Convert to buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Upload to Vercel Blob
+    const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
+    const blob = await put(filename, file, {
+      access: 'public',
+    });
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(2, 8);
-    const originalName = file.name;
-    const extension = originalName.split('.').pop() || file.type.split('/')[1] || 'jpg';
-    const filename = `${timestamp}-${randomStr}.${extension}`;
-
-    // Save to public/uploads directory
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-    
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const filepath = path.join(uploadDir, filename);
-    
-    // Write file
-    await fs.promises.writeFile(filepath, buffer);
-
-    // Return relative URL
-    return `/uploads/${filename}`;
+    console.log('Image uploaded to Vercel Blob:', blob.url);
+    return blob.url;
   } catch (error) {
     console.error('Upload error:', error);
     throw error;
