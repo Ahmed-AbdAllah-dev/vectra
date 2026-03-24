@@ -1,7 +1,7 @@
 // app/dashboard/orders/page.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
@@ -70,7 +70,7 @@ interface OrderSummary {
   averageOrderValue: number;
 }
 
-export default function OrdersPage() {
+function OrdersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -797,5 +797,13 @@ export default function OrdersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-500">Loading orders...</div>}>
+      <OrdersPageContent />
+    </Suspense>
   );
 }
